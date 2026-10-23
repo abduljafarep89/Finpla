@@ -31,6 +31,8 @@ dialog input,dialog select{width:100%;min-height:44px;font:inherit;margin-top:4p
 .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:8px}.add{width:100%;margin-top:6px;border-style:dashed}
 nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:58px}nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(130px + env(safe-area-inset-bottom));background:#1B1F3B;color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;opacity:0;transition:opacity .2s;z-index:20;pointer-events:none;text-align:center}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.day{min-height:54px;padding:4px 0;border-radius:10px;border:2px solid transparent;display:flex;flex-direction:column;align-items:center;font-size:14px;color:var(--ink)}
+.dots{display:flex;gap:2px;height:6px;margin-top:4px}.dots i{width:6px;height:6px;border-radius:50%}.seg button{padding:0 4px;font-size:13px}
 </style></head><body><div id="app"></div><dialog id="dlg"></dialog>
 <script>
 const $=s=>document.querySelector(s),K='finplan_v1',T=new Date(),pd=n=>String(n).padStart(2,'0'),iso=d=>d.getFullYear()+'-'+pd(d.getMonth()+1)+'-'+pd(d.getDate());
@@ -98,7 +100,7 @@ bi=sum(ex.filter(t=>t.d>pv&&t.d<=ls)),un=sum(ex.filter(t=>t.d>ls));
 if(!c.isPaid&&c.billed>bi)R.tx.push({id:id(),d:ls,t:'exp',a:c.billed-bi,c:'Card balance',n:'Imported billed amount',s:o.id,adj:1});
 if(c.unbilled>un)R.tx.push({id:id(),d:t0>ls?t0:iso(new Date(+s+864e5)),t:'exp',a:c.unbilled-un,c:'Card balance',n:'Imported unbilled amount',s:o.id,adj:1})});
 R.tx.forEach(t=>{if(!t.adj)t.c=mapCat(t)});R.plan.forEach(p=>p.c=mapCat({c:p.c,t:p.k,n:p.n}));return R}
-const mv=d=>{V.m+=d;if(V.m<0){V.m=11;V.y--}if(V.m>11){V.m=0;V.y++}render()};
+const mv=d=>{V.cd=0;V.m+=d;if(V.m<0){V.m=11;V.y--}if(V.m>11){V.m=0;V.y++}render()};
 
 function home(){const M=mt().filter(t=>!t.adj),inc=sum(M.filter(t=>t.t=='inc')),ex=sum(M.filter(t=>t.t=='exp')),iv=sum(M.filter(t=>t.t=='inv')),cash=S.acc.reduce((s,a)=>s+accBal(a),0),debt=S.cards.reduce((s,c)=>s+cardOut(c),0),lim=sum(S.cards,'limit'),mm={};
 S.tx.filter(t=>t.t=='exp'&&!t.adj).forEach(t=>mm[t.d.slice(0,7)]=(mm[t.d.slice(0,7)]||0)+t.a);
@@ -127,10 +129,24 @@ ${S.cards.map((c,i)=>{const b=bl[i],LS=lsb(c),o=cardOut(c),u=c.limit?o/c.limit*1
 ${b.pay>0?`<button class=pri style="width:100%" onclick="payCard('${c.id}')">Pay ${f(b.pay)}${c.pa?' from '+e(src(c.pa)):''}</button>`:`<div class=ok><b>${b.billed?'Paid in full':'Nothing due this month'}</b></div>`}<div class=row><button onclick="txForm({t:'pay',s:'${c.pa||''}',cd:'${c.id}'})">Other amount</button><button onclick="stmtForm('${c.id}')">Statement amounts</button></div></div>`}).join('')}
 <button onclick="cardForm()">Add credit card</button>`}
 
-const KS={exp:['Payments','var(--warn)','payment'],inv:['Investments','var(--pri)','investment'],inc:['Income','var(--ok)','income']};
-function plan(){const k=ym(V.y,V.m),pt=V.pt||'exp',d=p=>S.paid[p.id+'|'+k],L=S.plan.filter(p=>p.k==pt).sort((a,b)=>a.day-b.day),tot=sum(L),dn=sum(L.filter(d)),bl=S.cards.map(c=>({c,b:bill(c,V.y,V.m)})).filter(x=>x.b.billed||x.b.pay);
-return `<div class=seg>${Object.keys(KS).map(x=>`<button class="${pt==x?'on':''}" onclick="V.pt='${x}';render()">${KS[x][0]}</button>`).join('')}</div>
-<div class=c style="display:flex;gap:14px;align-items:center">${ring(tot?dn/tot:0,KS[pt][1],72)}<div><div class=m>${pt=='inc'?'Received':pt=='inv'?'Invested':'Paid'} so far</div><div class=big>${f(dn)}</div><div class=m>of ${f(tot)} planned, ${f(tot-dn)} to go</div></div></div>
+const KS={cal:['Calendar','var(--pri)','event'],exp:['Payments','var(--warn)','payment'],inv:['Investments','var(--pri)','investment'],inc:['Income','var(--ok)','income']};
+const EC={exp:'var(--warn)',inv:'var(--pri)',inc:'var(--ok)',due:'#DB2777',stmt:'var(--mut)'},EL={exp:'Payment',inv:'Investment',inc:'Income',due:'Card bill due',stmt:'Statement date'};
+function cal(){const y=V.y,m=V.m,dn=new Date(y,m+1,0).getDate(),k=ym(y,m),fd=new Date(y,m,1).getDay(),td=cur()?T.getDate():0,sd=V.cd&&V.cd<=dn?V.cd:(td||1),E=[],dd=x=>+x.slice(8);
+S.plan.forEach(p=>E.push({d:dd(dt(y,m,p.day)),k:p.k,n:p.n,a:p.a,id:p.id,done:!!S.paid[p.id+'|'+k]}));
+S.cards.forEach(c=>{const b=bill(c,y,m);E.push({d:dd(dt(y,m,c.bill)),k:'stmt',n:c.n,a:0});if(b.billed)E.push({d:dd(b.dueD),k:'due',n:c.n+' bill',a:b.pay||b.billed,done:b.pay==0,cid:c.id})});
+const M=mt().filter(t=>!t.adj),sp={};M.filter(t=>t.t=='exp').forEach(t=>sp[dd(t.d)]=(sp[dd(t.d)]||0)+t.a);const mx=Math.max(1,...Object.values(sp));
+const grid=[...Array(fd).fill(0),...Array.from({length:dn},(_,i)=>i+1)].map(d=>{if(!d)return'<span></span>';const h=sp[d]?(.12+.5*sp[d]/mx):0;
+return `<button class=day style="background:${sp[d]?`rgba(245,158,11,${h.toFixed(2)})`:'var(--card)'};${d==sd?'border-color:var(--pri);':''}${d==td?'font-weight:700;box-shadow:inset 0 -3px 0 var(--pri);':''}" onclick="V.cd=${d};render()" aria-label="Day ${d}">${d}<span class=dots>${E.filter(x=>x.d==d).slice(0,4).map(x=>`<i style="background:${EC[x.k]};opacity:${x.done?.35:1}"></i>`).join('')}</span></button>`}).join('');
+const ev=E.filter(x=>x.d==sd),pids=Object.values(S.paid),en=M.filter(t=>dd(t.d)==sd&&!pids.includes(t.id)),up=td?E.filter(x=>x.d>=td&&!x.done&&x.k!='stmt').sort((a,b)=>a.d-b.d).slice(0,5):[];
+return `<div class=c><div class=cal>${'SMTWTFS'.split('').map(x=>`<span class=m style="text-align:center">${x}</span>`).join('')}${grid}</div>
+<div class=m style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:10px">${Object.keys(EL).map(x=>`<span><i class=dot style="background:${EC[x]}"></i>${EL[x]}</span>`).join('')}<span>Amber tint: spending</span></div></div>
+<div class=c><h3>${new Date(y,m,sd).toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</h3>
+${ev.map(x=>`<div class=r><div><i class=dot style="background:${EC[x.k]}"></i><b>${e(x.n)}</b><div class=m style="margin-left:18px">${EL[x.k]}${x.k=='stmt'?'':x.done?' · done':' · pending'}</div></div><div style="text-align:right">${x.a?f(x.a):''}${x.id&&!x.done?`<button style="margin-left:8px" onclick="tg('${x.id}')">Mark</button>`:''}${x.cid&&!x.done?`<button class=pri style="margin-left:8px" onclick="payCard('${x.cid}')">Pay</button>`:''}</div></div>`).join('')}
+${en.map(t=>`<div class=r onclick="txForm(S.tx.find(y=>y.id=='${t.id}'))"><div><b>${e(t.n||t.c||'Entry')}</b><div class=m>${e(t.c||'Uncategorised')} · ${e(src(t.s))}</div></div><b style="color:${t.t=='inc'?'var(--ok)':'var(--ink)'}">${t.t=='inc'?'+':'-'}${f(t.a)}</b></div>`).join('')}
+${ev.length+en.length?'':'<div class=m>Nothing on this day.</div>'}</div>
+${up.length?`<div class=c><h3>Coming up</h3>${up.map(x=>`<div class=r><span><i class=dot style="background:${EC[x.k]}"></i>${x.d} ${new Date(y,m,1).toLocaleString('en-IN',{month:'short'})} · ${e(x.n)}</span><b>${x.a?f(x.a):''}</b></div>`).join('')}</div>`:''}`}
+function plan(){const k=ym(V.y,V.m),pt=V.pt||'cal',d=p=>S.paid[p.id+'|'+k],L=S.plan.filter(p=>p.k==pt).sort((a,b)=>a.day-b.day),tot=sum(L),dn=sum(L.filter(d)),bl=S.cards.map(c=>({c,b:bill(c,V.y,V.m)})).filter(x=>x.b.billed||x.b.pay);
+const SG=`<div class=seg>${Object.keys(KS).map(x=>`<button class="${pt==x?'on':''}" onclick="V.pt='${x}';render()">${KS[x][0]}</button>`).join('')}</div>`;if(pt=='cal')return SG+cal();return SG+`<div class=c style="display:flex;gap:14px;align-items:center">${ring(tot?dn/tot:0,KS[pt][1],72)}<div><div class=m>${pt=='inc'?'Received':pt=='inv'?'Invested':'Paid'} so far</div><div class=big>${f(dn)}</div><div class=m>of ${f(tot)} planned, ${f(tot-dn)} to go</div></div></div>
 <div class=c>${L.map(p=>`<div class=r style="${d(p)?'opacity:.6':''}"><button class="ck ${d(p)?'on':''}" onclick="tg('${p.id}')" aria-label="Mark ${e(p.n)}">${d(p)?'✓':''}</button><div onclick="planForm(S.plan.find(x=>x.id=='${p.id}'))" style="flex:1"><b>${e(p.n)}</b><div class=m>Day ${p.day} · ${e(src(p.s))}</div></div><b>${f(p.a)}</b></div>`).join('')||'<div class=m>Nothing planned yet.</div>'}<button class=add onclick="planForm({k:'${pt}'})">+ Add ${KS[pt][2]}</button></div>
 ${pt=='exp'&&bl.length?`<div class=c><h3>Credit card bills due</h3>${bl.map(x=>`<div class=r><div style="flex:1"><b>${e(x.c.n)}</b><div class=m>Due ${x.b.dueD.slice(5)}</div></div><b>${f(x.b.pay)}</b>${x.b.pay>0?`<button class=pri onclick="payCard('${x.c.id}')">Pay</button>`:'<span class=ok>Paid</span>'}</div>`).join('')}</div>`:''}`}
 const GCOL={'Food & Drinks':'#F59E0B','Shopping':'#EC4899','Housing':'#3B82F6','Transport':'#14B8A6','Vehicle':'#6366F1','Life & Entertainment':'#8B5CF6','Communication':'#06B6D4','Financial':'#EF4444','Others':'#9CA3AF','Income':'#0F766E','Investments':'#4F46E5'},gcol=c=>GCOL[CATG[c]]||'#9CA3AF';
