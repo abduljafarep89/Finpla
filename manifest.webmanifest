@@ -1,13 +1,13 @@
 {
-  "id": "fintrak",
-  "name": "Fintrak - Personal Finance Tracker",
-  "short_name": "Fintrak",
-  "description": "Smart personal finance tracker: accounts, cards, budget pace, people ledger, investments, and analytics.",
+  "id": "finplan",
+  "name": "FinPlan - Personal Finance Planner",
+  "short_name": "FinPlan",
+  "description": "Accounts, cards, planned payments, investments, people ledger and analytics. Data stays on your phone.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#10121F",
+  "background_color": "#1E1B4B",
   "theme_color": "#4F46E5",
   "icons": [
     {
@@ -35,14 +35,24 @@
       "short_name": "Add",
       "description": "Quickly record a new expense or income",
       "url": "./index.html#add",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Analytics",
       "short_name": "Analytics",
       "description": "View Month-on-Month Trends & Cashflow",
       "url": "./index.html#analytics",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

@@ -1,11 +1,11 @@
 /* =========================================================================
-   Fintrak - Personal Finance Tracker
+   FinPlan - Personal Finance Tracker
    Modular Application Logic (app.js)
    ========================================================================= */
 
 const $ = s => document.querySelector(s);
-const K = 'fintrak_v1';
-const T = new Date();
+const K = 'finplan3_data';
+let T = new Date();
 const pd = n => String(n).padStart(2, '0');
 const iso = d => d.getFullYear() + '-' + pd(d.getMonth() + 1) + '-' + pd(d.getDate());
 
@@ -17,15 +17,6 @@ if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.p
 let S = null;
 try {
   S = JSON.parse(localStorage.getItem(K) || 'null');
-  if (!S) {
-    const legacy = localStorage.getItem('finplan_v1') || localStorage.getItem('tracker_multi_row_mobile_suite');
-    if (legacy) {
-      const p = JSON.parse(legacy);
-      S = p.months ? convertOld(p) : p;
-      localStorage.setItem(K, JSON.stringify(S));
-      localStorage.removeItem('finplan_v1'); // Clean up duplicate key
-    }
-  }
 } catch (e) {
   console.warn('Storage read warning:', e);
 }
@@ -57,7 +48,7 @@ const pinHash=(salt,p)=>sha256('fintrak|'+salt+'|'+p);
 function migrate() {
   (S.tx || []).forEach(t => { if (t.c == 'Card balance') t.adj = 1; });
   if (S.pin) { S.pinsalt = Math.random().toString(36).slice(2); S.pinh = pinHash(S.pinsalt, S.pin); delete S.pin; }
-  S.hide = S.hide || [];
+  S.fp = S.fp || {}; S.fp.hide = (S.fp && S.fp.hide) || [];
 }
 migrate();
 
@@ -73,9 +64,9 @@ let V = {
   catFilter: '',
   sim: 0
 , hideSettled: true};
-try { V.hideSettled = localStorage.getItem('fintrak_hide_settled') !== '0'; } catch(e) {}
+try { V.hideSettled = localStorage.getItem('finplan3_hide_settled') !== '0'; } catch(e) {}
 try {
-  V.priv = localStorage.getItem('fintrak_priv') === '1';
+  V.priv = localStorage.getItem('finplan3_priv') === '1';
 } catch (e) {}
 
 if (typeof document !== 'undefined' && document.body && V.priv) {
@@ -85,7 +76,7 @@ if (typeof document !== 'undefined' && document.body && V.priv) {
 function togglePriv() {
   V.priv = !V.priv;
   try {
-    localStorage.setItem('fintrak_priv', V.priv ? '1' : '0');
+    localStorage.setItem('finplan3_priv', V.priv ? '1' : '0');
   } catch (e) {}
   if (typeof document !== 'undefined' && document.body) {
     document.body.classList.toggle('priv-mode', V.priv);
@@ -101,6 +92,14 @@ const MODES = {
   black: { bg: '#000000', card: '#121214', ink: '#F4F4F5', mut: '#A1A1AA', line: '#27272A', ok: '#4FD1C5', warn: '#F6AD55', bad: '#FC8181' },
   nord: { bg: '#242933', card: '#2E3440', ink: '#ECEFF4', mut: '#D8DEE9', line: '#3B4252', ok: '#A3BE8C', warn: '#EBCB8B', bad: '#BF616A' },
   cyber: { bg: '#0A0814', card: '#141026', ink: '#F5F3FF', mut: '#A78BFA', line: '#27204A', ok: '#2DD4BF', warn: '#FBBF24', bad: '#F43F5E' },
+  mist: { bg: '#EEF2F7', card: '#FFFFFF', ink: '#172033', mut: '#4A5568', line: '#DDE4EE', ok: '#0F766E', warn: '#B45309', bad: '#B91C1C' },
+  mint: { bg: '#EFF8F4', card: '#FFFFFF', ink: '#12302A', mut: '#4F6B63', line: '#D6EBE2', ok: '#047857', warn: '#B45309', bad: '#B91C1C' },
+  lavender: { bg: '#F5F2FC', card: '#FFFFFF', ink: '#231B3D', mut: '#5F5680', line: '#E4DDF5', ok: '#0F766E', warn: '#B45309', bad: '#BE123C' },
+  sand: { bg: '#F6F1E9', card: '#FFFCF7', ink: '#2A2217', mut: '#6C5E4A', line: '#E7DDCB', ok: '#0F766E', warn: '#B45309', bad: '#B91C1C' },
+  midnight: { bg: '#0B1220', card: '#131C2E', ink: '#E8EEFA', mut: '#9FB0CC', line: '#223049', ok: '#5EEAD4', warn: '#FBBF24', bad: '#FB7185' },
+  forest: { bg: '#0C1511', card: '#14201A', ink: '#E6F2EA', mut: '#9DB8A8', line: '#213329', ok: '#6EE7B7', warn: '#FBBF24', bad: '#FB7185' },
+  plum: { bg: '#150E1C', card: '#1E1529', ink: '#F1E9FA', mut: '#B9A5D1', line: '#32244A', ok: '#5EEAD4', warn: '#FBBF24', bad: '#FB7185' },
+  mocha: { bg: '#17110E', card: '#211915', ink: '#F3EAE2', mut: '#BFAA9B', line: '#38291F', ok: '#6EE7B7', warn: '#FBBF24', bad: '#FB7185' },
   sage: { bg: '#F2F6F3', card: '#FFFFFF', ink: '#1A2E22', mut: '#526B5C', line: '#DCE6DF', ok: '#059669', warn: '#D97706', bad: '#DC2626' }
 };
 
@@ -114,25 +113,69 @@ const ACC = {
   Ruby: ['#E11D48', '#BE123C', '#9F1239', '#F43F5E'],
   Gold: ['#D97706', '#B45309', '#92400E', '#F59E0B'],
   Amethyst: ['#8B5CF6', '#7C3AED', '#6D28D9', '#A78BFA'],
+  Teal: ['#0F766E', '#115E59', '#14B8A6', '#2DD4BF'],
+  Lime: ['#4D7C0F', '#3F6212', '#84CC16', '#A3E635'],
+  Coral: ['#D9503F', '#B93A2F', '#F0735E', '#F0735E'],
+  Magenta: ['#A21CAF', '#86198F', '#D946EF', '#E879F9'],
+  Bronze: ['#92400E', '#78350F', '#B45309', '#D97706'],
+  Navy: ['#1E40AF', '#1E3A8A', '#3B82F6', '#60A5FA'],
+  Periwinkle: ['#5865D6', '#4651B0', '#7C89F2', '#8E99F5'],
   Cyan: ['#0891B2', '#0E7490', '#155E75', '#06B6D4']
 };
 
-let TH = { m: 'auto', a: 'Indigo', c: 'Vivid', s: 'donut' };
+let TH = { m: 'auto', a: 'Indigo', c: 'Vivid', s: 'donut', f: 'system', z: 'M', ca: '#4F46E5' };
 try {
-  TH = { ...TH, ...JSON.parse(localStorage.getItem('fintrak_theme') || '{}') };
+  TH = { ...TH, ...JSON.parse(localStorage.getItem('finplan3_theme') || '{}') };
 } catch (e) {}
 
+const DARKM = ['dark', 'black', 'nord', 'cyber', 'midnight', 'forest', 'plum', 'mocha'];
+const FONTS = {
+  system: ['System', 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'],
+  poppins: ['Poppins', '"Poppins", system-ui, sans-serif'],
+  lora: ['Lora', '"Lora", Georgia, serif'],
+  rounded: ['Rounded', 'ui-rounded, "SF Pro Rounded", "Nunito", "Hiragino Maru Gothic ProN", system-ui, sans-serif'],
+  serif: ['Classic', 'Georgia, "Times New Roman", serif'],
+  mono: ['Mono', 'ui-monospace, "SF Mono", "Roboto Mono", Consolas, monospace']
+};
+const ZOOMS = { S: 0.94, M: 1, L: 1.08 };
+function hexHsl(h) {
+  const r = parseInt(h.slice(1, 3), 16) / 255, g = parseInt(h.slice(3, 5), 16) / 255, b = parseInt(h.slice(5, 7), 16) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+  let H = 0, Sx = 0;
+  if (mx != mn) {
+    const d = mx - mn;
+    Sx = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    H = mx == r ? (g - b) / d + (g < b ? 6 : 0) : mx == g ? (b - r) / d + 2 : (r - g) / d + 4;
+    H *= 60;
+  }
+  return [H, Sx * 100, l * 100];
+}
+function hslHex(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return '#' + [f(0), f(8), f(4)].map(x => Math.round(x * 255).toString(16).padStart(2, '0')).join('');
+}
+function customAcc(hex) {
+  if (!/^#[0-9a-f]{6}$/i.test(hex || '')) hex = '#4F46E5';
+  const [h, s, l] = hexHsl(hex);
+  return [hex, hslHex(h, s, Math.max(10, l - 12)), hslHex((h + 25) % 360, s, Math.min(70, l + 4)), hslHex(h, s, Math.min(78, l + 14))];
+}
 function applyTheme() {
   if (typeof document === 'undefined') return;
-  const dk = TH.m == 'dark' || TH.m == 'black' || (TH.m == 'auto' && typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches);
+  const dk = DARKM.includes(TH.m) || (TH.m == 'auto' && typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches);
   const M = MODES[TH.m == 'auto' ? (dk ? 'dark' : 'light') : TH.m] || MODES.light;
-  const a = ACC[TH.a] || ACC.Indigo;
+  const a = TH.a == 'Custom' ? customAcc(TH.ca) : (ACC[TH.a] || ACC.Indigo);
+  if (!document.documentElement || !document.documentElement.style) return;
   const r = document.documentElement.style;
   Object.entries(M).forEach(([n, v]) => r.setProperty('--' + n, v));
   r.setProperty('--pri', dk ? a[3] : a[0]);
   r.setProperty('--g1', a[1]);
   r.setProperty('--g2', a[2]);
+  r.setProperty('--font', (FONTS[TH.f] || FONTS.system)[1]);
   r.colorScheme = dk ? 'dark' : 'light';
+  if (document.documentElement.dataset) document.documentElement.dataset.dark = dk ? '1' : '0';
+  if (document.body && document.body.style) document.body.style.zoom = ZOOMS[TH.z] || 1;
   const tm = document.querySelector('meta[name=theme-color]');
   if (tm) tm.content = M.bg;
 }
@@ -140,7 +183,7 @@ function applyTheme() {
 function setTheme(k, v) {
   TH[k] = v;
   try {
-    localStorage.setItem('fintrak_theme', JSON.stringify(TH));
+    localStorage.setItem('finplan3_theme', JSON.stringify(TH));
   } catch (e) {}
   applyTheme();
   render();
@@ -284,12 +327,12 @@ function toast(m) {
 
 // PIN Lock Engine
 function isPinLocked() {
-  return !!S.pinh && !sessionStorage.getItem('fintrak_unlocked');
+  return !!S.pinh && !sessionStorage.getItem('finplan3_unlocked');
 }
 
 function unlockWithPin(p) {
   if (S.pinh && pinHash(S.pinsalt || '', p) === S.pinh) {
-    sessionStorage.setItem('fintrak_unlocked', '1');
+    sessionStorage.setItem('finplan3_unlocked', '1');
     render();
     return true;
   }
@@ -299,7 +342,7 @@ function unlockWithPin(p) {
 // Backup Check (14 days reminder)
 function checkBackupReminder() {
   if (!(S.tx || []).length && !(S.acc || []).length) return false;
-  const lb = localStorage.getItem('fintrak_last_backup');
+  const lb = localStorage.getItem('finplan3_last_backup');
   if (!lb) return true;
   const days = (Date.now() - new Date(lb).getTime()) / 864e5;
   return days > 14;
@@ -449,7 +492,7 @@ END:VEVENT`);
 
   const ics = `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Fintrak//Financial Schedule Calendar//EN
+PRODID:-//FinPlan//Financial Schedule Calendar//EN
 CALSCALE:GREGORIAN
 METHOD:PUBLISH
 ${events.join('\n')}
@@ -458,28 +501,28 @@ END:VCALENDAR`;
   const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `fintrak_reminders_${ym(V.y, V.m)}.ics`;
+  a.download = `finplan3_reminders_${ym(V.y, V.m)}.ics`;
   a.click();
   toast('✓ Calendar reminders exported (.ics)');
 }
 
 const _u8b=a=>{let s='';new Uint8Array(a).forEach(x=>s+=String.fromCharCode(x));return btoa(s)},_b8u=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 async function _kdf(pw,salt,use){return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:200000,hash:'SHA-256'},await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']),{name:'AES-GCM',length:256},false,[use])}
-async function encryptJson(text,pw){const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},await _kdf(pw,salt,'encrypt'),new TextEncoder().encode(text));return JSON.stringify({_fintrak_protected:2,date:iso(T),salt:_u8b(salt),iv:_u8b(iv),data:_u8b(ct)})}
+async function encryptJson(text,pw){const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},await _kdf(pw,salt,'encrypt'),new TextEncoder().encode(text));return JSON.stringify({_finplan_protected:2,date:iso(T),salt:_u8b(salt),iv:_u8b(iv),data:_u8b(ct)})}
 async function decryptJson(env,pw){const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:_b8u(env.iv)},await _kdf(pw,_b8u(env.salt),'decrypt'),_b8u(env.data));return new TextDecoder().decode(pt)}
 async function encBackupUI(){const pw=prompt('Choose a password for the encrypted backup. You need it to restore, and it cannot be recovered.');if(!pw)return;if(pw.length<6)return alert('Use at least 6 characters.');if(prompt('Type the password again')!==pw)return alert('The passwords did not match.');try{await bk(true,pw)}catch(x){alert('Encryption is not available in this browser.')}}
 // Backup Exporter with Share API & Optional Password
 async function bk(encrypt = false, password = '') {
-  let content = JSON.stringify(S, null, 2);
-  let fileName = `fintrak-backup-${iso(T)}.json`;
+  let content = JSON.stringify(exportState(), null, 2);
+  let fileName = `finplan-backup-${iso(T)}.json`;
 
   if (encrypt && password) {
     content = await encryptJson(content, password);
-    fileName = `fintrak-backup-locked-${iso(T)}.json`;
+    fileName = `finplan-backup-locked-${iso(T)}.json`;
   }
 
   const blob = new Blob([content], { type: 'application/json' });
-  localStorage.setItem('fintrak_last_backup', iso(T));
+  localStorage.setItem('finplan3_last_backup', iso(T));
 
   if (navigator.share && navigator.canShare) {
     try {
@@ -487,8 +530,8 @@ async function bk(encrypt = false, password = '') {
       if (navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: 'Fintrak Financial Backup',
-          text: `Fintrak Backup - ${iso(T)}`
+          title: 'FinPlan Financial Backup',
+          text: `FinPlan Backup - ${iso(T)}`
         });
         toast('✓ Backup shared successfully');
         render();
@@ -517,13 +560,13 @@ const expCsv = () => {
   });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  a.download = `fintrak-transactions-${iso(T)}.csv`;
+  a.download = `finplan-transactions-${iso(T)}.csv`;
   a.click();
   toast('✓ CSV exported successfully!');
 };
 
 function checkBackup(j) {
-  if (!j || typeof j !== 'object') return { ok: false, msg: 'This is not a Fintrak backup file.' };
+  if (!j || typeof j !== 'object') return { ok: false, msg: 'This is not a FinPlan backup file.' };
   for (const k of ['acc', 'cards', 'tx', 'plan']) {
     if (j[k] === undefined) j[k] = [];
     else if (!Array.isArray(j[k])) return { ok: false, msg: 'The "' + k + '" section of this file is damaged.' };
@@ -535,45 +578,62 @@ function checkBackup(j) {
 }
 function undoLoad() {
   try {
-    const p = JSON.parse(localStorage.getItem('fintrak_prev_data') || 'null');
+    const p = JSON.parse(localStorage.getItem('finplan3_prev_data') || 'null');
     if (!p) return alert('There is no earlier data to restore.');
     S = p; migrate(); save(); toast('✓ Earlier data restored');
   } catch (x) { alert('Could not restore the earlier data.'); }
+}
+function exportState() {
+  // Same data format as Fintrak. App-only extras live under "fp"; PIN data is never exported.
+  const o = JSON.parse(JSON.stringify(S));
+  delete o.pin; delete o.pinh; delete o.pinsalt;
+  o._app = 'finplan'; o._schema = 36; o._exported = iso(T);
+  return o;
+}
+async function loadText(text, label) {
+  try {
+    let j = JSON.parse(text);
+    const prot = j._finplan_protected || j._fintrak_protected;
+    if (prot === 2) {
+      const pw = prompt('Password for this encrypted backup:');
+      if (!pw) return;
+      try { j = JSON.parse(await decryptJson(j, pw)); } catch (x) { return alert('Wrong password or damaged file. Nothing was changed.'); }
+    } else if (prot) {
+      const pw = prompt('Enter the backup password:');
+      if (!pw || btoa(pw).slice(0, 10) !== j.hash) return alert('Incorrect password! Restore aborted.');
+      j = JSON.parse(decodeURIComponent(escape(atob(j.data))));
+      toast('This file used the old weak protection. Export again for real encryption.');
+    }
+    const old = !!j.months;
+    const nS = old ? convertOld(j) : j;
+    const chk = checkBackup(nS);
+    if (!chk.ok) return alert(chk.msg + ' Nothing was changed.');
+    delete nS.pin; delete nS.pinh; delete nS.pinsalt;
+    if (S.pinh) { nS.pinh = S.pinh; nS.pinsalt = S.pinsalt; }
+    const msg = (old ? 'Older tracker backup found.\n' : '') + 'Load ' + (label || 'this backup') + '?\n• ' + nS.acc.length + ' accounts · ' + nS.cards.length + ' cards · ' + nS.tx.length + ' entries' + (chk.dropped ? ' (' + chk.dropped + ' damaged entries skipped)' : '') + '\n\nThis replaces the data now in the app. A safety copy is kept so you can undo. Your PIN is not changed.';
+    if (!confirm(msg)) return;
+    try { localStorage.setItem('finplan3_prev_data', JSON.stringify(S)); } catch (x) {}
+    S = nS; migrate(); save();
+    toastAction('✓ Loaded ' + S.tx.length + ' entries', 'Undo', undoLoad);
+  } catch (x) {
+    console.error(x);
+    alert('Error reading backup file: ' + (x.message || 'Invalid JSON'));
+  }
 }
 const ld = i => {
   const file = i.files[0];
   if (!file) return;
   const r = new FileReader();
-  r.onload = async () => {
-    try {
-      let j = JSON.parse(r.result);
-      if (j._fintrak_protected === 2) {
-        const pw = prompt('Password for this encrypted backup:');
-        if (!pw) return;
-        try { j = JSON.parse(await decryptJson(j, pw)); } catch (x) { return alert('Wrong password or damaged file. Nothing was changed.'); }
-      } else if (j._fintrak_protected) {
-        const pw = prompt('Enter the backup password:');
-        if (!pw || btoa(pw).slice(0, 10) !== j.hash) return alert('Incorrect password! Restore aborted.');
-        j = JSON.parse(decodeURIComponent(escape(atob(j.data))));
-        toast('This file used the old weak protection. Export again for real encryption.');
-      }
-      const old = !!j.months;
-      const nS = old ? convertOld(j) : j;
-      const chk = checkBackup(nS);
-      if (!chk.ok) return alert(chk.msg + ' Nothing was changed.');
-      const msg = (old ? 'Older tracker backup found.\n' : '') + 'Load this backup?\n• ' + nS.acc.length + ' accounts · ' + nS.cards.length + ' cards · ' + nS.tx.length + ' entries' + (chk.dropped ? ' (' + chk.dropped + ' damaged entries skipped)' : '') + '\n\nThis replaces the data now in the app. A safety copy is kept so you can undo.';
-      if (!confirm(msg)) return;
-      try { localStorage.setItem('fintrak_prev_data', JSON.stringify(S)); } catch (x) {}
-      S = nS; migrate(); save();
-      toastAction('✓ Loaded ' + S.tx.length + ' entries', 'Undo', undoLoad);
-    } catch (x) {
-      console.error(x);
-      alert('Error reading backup file: ' + (x.message || 'Invalid JSON'));
-    }
-  };
+  r.onload = () => loadText(r.result);
   r.readAsText(file);
   i.value = '';
 };
+function impLocal(key, label) {
+  const t = localStorage.getItem(key);
+  if (!t) return alert('No ' + label + ' found on this phone.');
+  loadText(t, label + ' from this phone');
+}
+const localBtns = () => [['fintrak_v1', 'Fintrak data'], ['finplan_v1', 'earlier FinPlan data']].filter(([k]) => { try { return !!localStorage.getItem(k); } catch (e) { return false; } }).map(([k, l]) => `<button style="width:100%;margin-top:8px" onclick="impLocal('${k}','${l}')">Load ${l} from this phone</button>`).join('');
 
 function form(h, fl, ok, del, noc) {
   const d = $('#dlg');
@@ -742,7 +802,7 @@ function reconcileAccForm(accId) {
       <h3 style="margin:0">⚖️ Reconcile ${e(a.n)} Balance</h3>
       <div style="padding:10px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line);font-size:12.5px;line-height:1.4">
         <div class=r style="padding:0"><span>Current App Balance:</span><b style="font-size:14px">${f(currentBal)}</b></div>
-        <div class=m style="font-size:11.5px;margin-top:4px">Enter your actual balance from your bank app/SMS. Fintrak will auto-calculate unlogged spending or income and record it in History on today's date.</div>
+        <div class=m style="font-size:11.5px;margin-top:4px">Enter your actual balance from your bank app/SMS. FinPlan will auto-calculate unlogged spending or income and record it in History on today's date.</div>
       </div>
 
       <label style="font-size:12.5px;color:var(--mut);display:block">
@@ -875,7 +935,7 @@ function reconcileCardForm(cardId) {
       <h3 style="margin:0">⚖️ Reconcile ${e(c.n)} Card Balance</h3>
       <div style="padding:10px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line);font-size:12.5px;line-height:1.4">
         <div class=r style="padding:0"><span>Current Card Balance in App:</span><b style="font-size:14px">${f(currentOut)}</b></div>
-        <div class=m style="font-size:11.5px;margin-top:4px">Enter your actual total outstanding balance from your bank app (e.g. HDFC MyCards, iMobile, SBI Card). Fintrak will auto-calculate unlogged card spending or refunds and record it in History on today's date.</div>
+        <div class=m style="font-size:11.5px;margin-top:4px">Enter your actual total outstanding balance from your bank app (e.g. HDFC MyCards, iMobile, SBI Card). FinPlan will auto-calculate unlogged card spending or refunds and record it in History on today's date.</div>
       </div>
 
       <label style="font-size:12.5px;color:var(--mut);display:block">
@@ -1362,22 +1422,122 @@ function tidy() {
 
 const budForm = () => form('Monthly budget', [{ k: 'b', l: 'Total monthly spending budget', t: 'number', v: S.budget || '' }], r => { S.budget = +r.b || 0; save(); });
 
-const tg = i => {
-  const p = S.plan.find(x => x.id == i), k = i + '|' + ym(V.y, V.m);
-  if (S.paid[k]) {
-    S.tx = S.tx.filter(t => t.id != S.paid[k]);
-    delete S.paid[k];
-  } else {
-    let a = p.a;
-    if (!a) {
-      a = +prompt('Amount for ' + p.n + '?', pamt(p) || '') || 0;
-      if (!a) return;
-    }
-    const t = { id: id(), d: cur() ? iso(T) : dt(V.y, V.m, p.day), t: p.k, a, c: p.c || p.n, n: p.n, s: p.s };
+// Native In-App Bottom Sheet Confirmation Dialog (Replaces clunky browser popups)
+function confirmSheet(opts) {
+  if (typeof window !== 'undefined') window._lastConfirmSheet = opts;
+  const d = $('#dlg');
+  if (!d) return;
+
+  d.innerHTML = `
+    <div class="sheet-drag-handle" onclick="dlg.close()"></div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="width:42px;height:42px;border-radius:12px;background:color-mix(in srgb,${opts.color || 'var(--bad)'} 18%,transparent);color:${opts.color || 'var(--bad)'};display:flex;align-items:center;justify-content:center;font-size:22px;flex:none">${opts.icon || '⚠️'}</span>
+        <div style="flex:1;min-width:0">
+          <h3 style="margin:0;font-size:16px;color:var(--ink)">${e(opts.title || 'Confirm Action')}</h3>
+          ${opts.subtitle ? `<div class="m" style="font-size:12px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e(opts.subtitle)}</div>` : ''}
+        </div>
+      </div>
+      
+      ${opts.details ? `<div style="padding:10px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line);font-size:12.5px;line-height:1.5">${opts.details}</div>` : ''}
+
+      <div class="row" style="margin-top:6px;gap:8px">
+        <button type="button" id="confirmSheetCancelBtn" onclick="dlg.close()" style="flex:1;min-height:42px;font-size:13px">${opts.cancelLabel || 'Cancel'}</button>
+        <button type="button" id="confirmSheetActBtn" class="${opts.confirmClass || 'bad'}" style="flex:1;min-height:42px;font-size:13px;background:${opts.confirmClass === 'pri' ? 'var(--pri)' : 'var(--bad)'};color:#fff;border:0;font-weight:600">${opts.confirmLabel || 'Confirm'}</button>
+      </div>
+    </div>
+  `;
+
+  const actBtn = document.getElementById('confirmSheetActBtn');
+  if (actBtn) {
+    actBtn.onclick = () => {
+      d.close();
+      if (opts.onConfirm) opts.onConfirm();
+    };
+  }
+
+  if (d.showModal) d.showModal();
+  if (typeof history !== 'undefined') history.pushState({ t: V.t, dlg: 1 }, '');
+}
+
+function markPlannedPaymentForm(p, k) {
+  const scheduledDate = dt(V.y, V.m, p.day);
+  const todayDate = iso(T);
+  const defaultAmt = pamt(p) || p.a || 0;
+  const typeLabel = p.k === 'inc' ? 'Received' : p.k === 'inv' ? 'Invested' : 'Paid';
+
+  const datePills = `
+    <div style="display:flex;gap:8px;margin:4px 0 8px">
+      <button type="button" onclick="document.querySelector('#dlg [name=d]').value='${scheduledDate}'" style="flex:1;min-height:34px;font-size:12px;border-radius:8px;background:var(--bg);border:1px solid var(--line)">
+        📅 Scheduled (${p.day} ${mo()})
+      </button>
+      <button type="button" onclick="document.querySelector('#dlg [name=d]').value='${todayDate}'" style="flex:1;min-height:34px;font-size:12px;border-radius:8px;background:var(--bg);border:1px solid var(--line)">
+        ⚡ Today (${new Date().toLocaleDateString('en-IN', {day:'numeric', month:'short'})})
+      </button>
+    </div>
+  `;
+
+  form(`Mark ${p.n} as ${typeLabel}`, [
+    { k: 'date_pills', l: 'Payment Date', h: datePills },
+    { k: 'd', l: 'Date (tap button above or pick custom date)', t: 'date', v: scheduledDate },
+    { k: 'a', l: 'Actual Amount (₹)', t: 'number', v: defaultAmt },
+    { k: 's', l: p.k === 'inc' ? 'Deposit into Account' : 'Paid from Account or Card', o: opts(p.k === 'exp'), v: p.s },
+    { k: 'n', l: 'Note (optional)', v: p.n }
+  ],
+  r => {
+    const amt = +r.a;
+    if (!amt || !r.s) return no('Amount and account are needed');
+    const payDate = r.d || scheduledDate;
+
+    delete r.date_pills;
+    const t = {
+      id: id(),
+      d: payDate,
+      t: p.k,
+      a: amt,
+      c: p.c || p.n,
+      n: r.n || p.n,
+      s: r.s
+    };
     S.tx.push(t);
     S.paid[k] = t.id;
+    save();
+    toast(`✓ Recorded ${p.n} (${f(amt)}) on ${payDate}`);
+  });
+}
+
+const tg = i => {
+  const p = S.plan.find(x => x.id == i), k = i + '|' + ym(V.y, V.m);
+  if (!p) return;
+
+  // 1. Unticking: beautiful native bottom sheet confirmation
+  if (S.paid[k]) {
+    const existingTx = S.tx.find(t => t.id == S.paid[k]);
+    confirmSheet({
+      icon: '↩️',
+      color: 'var(--warn)',
+      title: 'Unmark Payment?',
+      subtitle: p.n,
+      details: `
+        <div class="r" style="padding:2px 0"><span>Recorded Date:</span><b>${existingTx ? existingTx.d : 'Scheduled'}</b></div>
+        <div class="r" style="padding:2px 0"><span>Recorded Amount:</span><b style="color:var(--pri)">${existingTx ? f(existingTx.a) : f(pamt(p))}</b></div>
+        <div class="m" style="font-size:11.5px;margin-top:6px">Unmarking will delete this transaction from your History feed and mark this payment as pending.</div>
+      `,
+      cancelLabel: 'Keep as Paid',
+      confirmLabel: 'Yes, Unmark',
+      confirmClass: 'bad',
+      onConfirm: () => {
+        S.tx = S.tx.filter(t => t.id != S.paid[k]);
+        delete S.paid[k];
+        save();
+        toast(`✓ Unmarked "${p.n}"`);
+      }
+    });
+    return;
   }
-  save();
+
+  // 2. Ticking: open pre-filled confirmation sheet with date selection
+  markPlannedPaymentForm(p, k);
 };
 
 function convertOld(j) {
@@ -1423,23 +1583,44 @@ const mv = d => {
 function deletePerson(pid) {
   const p = (S.people || []).find(x => x.id == pid);
   if (!p) return;
-  if (p.balance !== 0) {
-    if (!confirm(`"${p.name}" has an active balance of ${f(p.balance)}. Remove them anyway?`)) return;
-  } else {
-    if (!confirm(`Remove settled contact "${p.name}" from your ledger?`)) return;
-  }
-  S.people = S.people.filter(x => x.id != pid);
-  save();
-  toast(`✓ Removed "${p.name}" from People Ledger`);
+  const isSettled = p.balance === 0;
+  confirmSheet({
+    icon: '👤',
+    color: isSettled ? 'var(--mut)' : 'var(--bad)',
+    title: isSettled ? 'Remove Settled Contact?' : 'Remove Contact with Active Balance?',
+    subtitle: p.name,
+    details: isSettled ?
+      `<div class="m" style="font-size:12px">"${e(p.name)}" has a settled balance of ₹0. Removing them cleans up your ledger list. Past transaction records remain safely in your History.</div>` :
+      `<div class="m" style="font-size:12px">"${e(p.name)}" has an active balance of <b style="color:${p.balance > 0 ? 'var(--ok)' : 'var(--bad)'}">${f(p.balance)}</b>. Are you sure you want to remove them from your ledger?</div>`,
+    cancelLabel: 'Cancel',
+    confirmLabel: 'Remove Person',
+    confirmClass: 'bad',
+    onConfirm: () => {
+      S.people = S.people.filter(x => x.id != pid);
+      save();
+      toast(`✓ Removed "${p.name}" from People Ledger`);
+    }
+  });
 }
 
 function clearAllSettledPeople() {
   const settled = (S.people || []).filter(p => p.balance === 0);
   if (!settled.length) return toast('No settled people to remove.');
-  if (!confirm(`Remove ${settled.length} settled ${settled.length === 1 ? 'person' : 'people'} (₹0 balance) from your ledger?`)) return;
-  S.people = S.people.filter(p => p.balance !== 0);
-  save();
-  toast(`✓ Removed ${settled.length} settled contacts`);
+  confirmSheet({
+    icon: '🧹',
+    color: 'var(--mut)',
+    title: 'Clear Settled Contacts?',
+    subtitle: `${settled.length} ${settled.length === 1 ? 'person' : 'people'} with ₹0 balance`,
+    details: `<div class="m" style="font-size:12px">This will remove all contacts who have settled in full. Past records remain safely in your History feed.</div>`,
+    cancelLabel: 'Cancel',
+    confirmLabel: `Clear ${settled.length} Contacts`,
+    confirmClass: 'bad',
+    onConfirm: () => {
+      S.people = S.people.filter(p => p.balance !== 0);
+      save();
+      toast(`✓ Removed ${settled.length} settled contacts`);
+    }
+  });
 }
 
 function peopleForm(o = {}) {
@@ -1713,7 +1894,7 @@ function home() {
       <span class=m><i class=dot style="background:#6366F1"></i>Invested ${V.priv ? '••%' : (over ? f(iv) : pctInvested + '%')}</span>
       <span class=m><i class=dot style="background:#10B981"></i>Surplus ${V.priv ? '••%' : pctSurplus + '%'}</span>
     </div>
-    ${zeroInc ? `<div style="font-size:12px;margin-top:6px;padding:6px 8px;border-radius:6px;background:var(--bg);cursor:pointer" onclick="V.t='plan';V.pt='inc';render()">💡 ${zeroInc} planned income item${zeroInc > 1 ? 's have' : ' has'} no amount yet (for example Salary). Tap to set it for a better forecast.</div>` : ''}${isSalaryPending ? `<div style="font-size:11px;color:var(--mut);margin-top:6px;padding:4px 8px;border-radius:6px;background:var(--bg)">ℹ️ Based on ${f(totalExpectedInc)} expected monthly income (Salary pending arrival). Current received cashflow: <b>${f(inc - ex - iv)}</b></div>` : ''}
+    ${over ? `<div style="font-size:11px;color:var(--mut);margin-top:6px;padding:4px 8px;border-radius:6px;background:var(--bg)">Spending and investing together are above this month's income, so the bar shows their split.</div>` : ''}${zeroInc ? `<div style="font-size:12px;margin-top:6px;padding:6px 8px;border-radius:6px;background:var(--bg);cursor:pointer" onclick="V.t='plan';V.pt='inc';render()">💡 ${zeroInc} planned income item${zeroInc > 1 ? 's have' : ' has'} no amount yet (for example Salary). Tap to set it for a better forecast.</div>` : ''}${isSalaryPending ? `<div style="font-size:11px;color:var(--mut);margin-top:6px;padding:4px 8px;border-radius:6px;background:var(--bg)">ℹ️ Based on ${f(totalExpectedInc)} expected monthly income (Salary pending arrival). Current received cashflow: <b>${f(inc - ex - iv)}</b></div>` : ''}
   </div>`;
 
   // Quick Add Shortcuts Row
@@ -1798,7 +1979,7 @@ function home() {
   </div>`;
 
   return `
-  ${(!S.acc.length && !S.tx.length) ? `<div class=c><h3 style="margin-bottom:6px">Welcome</h3><div class=m style="margin-bottom:10px">Already use Fintrak? Load your data from a backup file. Otherwise start fresh by adding a bank account.</div><button class=pri style="width:100%" onclick="imp.click()">Load data from a Fintrak backup</button><button style="width:100%;margin-top:8px" onclick="accForm()">Start fresh: add a bank account</button></div>` : ''}
+  ${(!S.acc.length && !S.tx.length) ? `<div class=c><h3 style="margin-bottom:6px">Welcome</h3><div class=m style="margin-bottom:10px">Already use Fintrak or an older FinPlan? Load your data from a backup file. Otherwise start fresh by adding a bank account.</div><button class=pri style="width:100%" onclick="imp.click()">Load data from a Fintrak or FinPlan backup</button>${localBtns()}<button style="width:100%;margin-top:8px" onclick="accForm()">Start fresh: add a bank account</button></div>` : ''}
   ${backupBanner}
   ${quickPills}
   <div class=hero>
@@ -2328,7 +2509,7 @@ function plan() {
 
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:4px 0">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:var(--mut)">
-          <input type="checkbox" ${V.hideSettled ? 'checked' : ''} onchange="V.hideSettled=this.checked;localStorage.setItem('fintrak_hide_settled',this.checked?'1':'0');render()" style="width:16px;height:16px;min-height:0;margin:0">
+          <input type="checkbox" ${V.hideSettled ? 'checked' : ''} onchange="V.hideSettled=this.checked;localStorage.setItem('finplan3_hide_settled',this.checked?'1':'0');render()" style="width:16px;height:16px;min-height:0;margin:0">
           <span>Hide settled (₹0 balance)</span>
         </label>
         <div style="display:flex;align-items:center;gap:6px">
@@ -2600,11 +2781,11 @@ function more() {
       <button onclick="bk(false)">Export / Share Backup</button>
       <button onclick="encBackupUI()">🔒 Encrypted backup</button>
     </div>
-    <button class=pri style="width:100%;margin-top:8px" onclick="imp.click()">Load data from a Fintrak backup</button>
-    ${localStorage.getItem('fintrak_prev_data') ? '<button style="width:100%;margin-top:8px" onclick="if(confirm(\'Go back to the data you had before the last load?\'))undoLoad()">↩ Undo last load</button>' : ''}
+    <button class=pri style="width:100%;margin-top:8px" onclick="imp.click()">Load data from a Fintrak or FinPlan backup</button>${localBtns()}
+    ${localStorage.getItem('finplan3_prev_data') ? '<button style="width:100%;margin-top:8px" onclick="if(confirm(\'Go back to the data you had before the last load?\'))undoLoad()">↩ Undo last load</button>' : ''}
     <button style="width:100%;margin-top:8px" onclick="expCsv()">📊 Export all transactions to CSV (Excel)</button>
     <input type=file id=imp aria-label="Choose a backup file" accept=.json hidden onchange="ld(this)">
-    <div class=m style="font-size:11px;margin-top:8px">Last backup: ${localStorage.getItem('fintrak_last_backup') || 'Never'}</div>
+    <div class=m style="font-size:11px;margin-top:8px">Last backup: ${localStorage.getItem('finplan3_last_backup') || 'Never'}</div>
   </div>
 
   ${homeCardsHtml()}
@@ -2631,22 +2812,33 @@ function pinSettingsForm() {
   const newP = prompt('Enter a 4-digit numeric PIN:');
   if (!newP || !/^\d{4}$/.test(newP)) return alert('PIN must be exactly 4 digits.');
   S.pinsalt = Math.random().toString(36).slice(2); S.pinh = pinHash(S.pinsalt, newP);
-  sessionStorage.setItem('fintrak_unlocked', '1');
+  sessionStorage.setItem('finplan3_unlocked', '1');
   save();
   toast('✓ Security PIN enabled!');
 }
 
+const LOGO = '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--g1)"/><stop offset="1" style="stop-color:var(--g2)"/></linearGradient></defs><path d="M16 2.5c3.2 1.6 6 2.2 9 2.2v10.3c0 6.2-4 10.6-9 13-5-2.4-9-6.8-9-13V4.7c3 0 5.8-.6 9-2.2z" fill="url(#lg)"/><rect x="11" y="15" width="3" height="6" rx="1.2" fill="#fff" opacity=".75"/><rect x="15" y="12" width="3" height="9" rx="1.2" fill="#fff" opacity=".9"/><rect x="19" y="8.5" width="3" height="12.5" rx="1.2" fill="#fff"/></svg>';
+const MODE_NAMES = { auto: 'Auto', light: 'Light', warm: 'Warm', sage: 'Sage', mist: 'Mist', mint: 'Mint', lavender: 'Lavender', sand: 'Sand', dark: 'Dark', black: 'Black', nord: 'Nord', cyber: 'Cyber', midnight: 'Midnight', forest: 'Forest', plum: 'Plum', mocha: 'Mocha' };
+const modeTile = k => {
+  const M = k == 'auto' ? null : MODES[k], sel = TH.m == k;
+  return `<button aria-label="${MODE_NAMES[k]}" aria-pressed="${sel}" onclick="setTheme('m','${k}')" class="mt ${sel ? 'on' : ''}"><span class=mp style="background:${M ? M.bg : 'linear-gradient(90deg,#F4F5FA 50%,#10121F 50%)'}"><i style="background:${M ? M.card : '#fff'}"></i><i style="background:${M ? M.line : '#2C3050'};width:60%"></i></span><span>${MODE_NAMES[k]}</span></button>`;
+};
 const appear = () => `
 <div class=c>
   <h3>Appearance</h3>
-  <div class=m style="margin-bottom:6px">Mode</div>
-  <div class=seg>
-    ${[['auto', 'Auto'], ['light', 'Light'], ['warm', 'Warm'], ['dark', 'Dark'], ['black', 'Black'], ['nord', 'Nord'], ['cyber', 'Cyber'], ['sage', 'Sage']].map(([k, l]) => `<button class="${TH.m == k ? 'on' : ''}" onclick="setTheme('m','${k}')">${l}</button>`).join('')}
+  <div class=m>Light themes</div>
+  <div class=mgrid>${['auto', 'light', 'warm', 'sage', 'mist', 'mint', 'lavender', 'sand'].map(modeTile).join('')}</div>
+  <div class=m style="margin-top:12px">Dark themes</div>
+  <div class=mgrid>${['dark', 'black', 'nord', 'cyber', 'midnight', 'forest', 'plum', 'mocha'].map(modeTile).join('')}</div>
+  <div class=m style="margin:16px 0 8px">Accent colour: ${TH.a}${TH.a == 'Custom' ? ' ' + e(TH.ca || '') : ''}</div>
+  <div class=sw>
+    ${Object.entries(ACC).map(([n, a]) => `<button aria-label="${n}" aria-pressed="${TH.a == n}" onclick="setTheme('a','${n}')" class="sw1 ${TH.a == n ? 'on' : ''}" style="background:linear-gradient(135deg,${a[1]},${a[2]})"></button>`).join('')}
+    <span class="sw1 cust ${TH.a == 'Custom' ? 'on' : ''}" style="background:${TH.a == 'Custom' ? e(TH.ca || '#4F46E5') : 'conic-gradient(red,yellow,lime,aqua,blue,magenta,red)'}"><input type=color aria-label="Pick any accent colour" value="${e(TH.ca || '#4F46E5')}" onchange="TH.ca=this.value;setTheme('a','Custom')"></span>
   </div>
-  <div class=m style="margin:12px 0 6px">Accent colour: ${TH.a}</div>
-  <div style="display:flex;gap:10px;flex-wrap:wrap">
-    ${Object.entries(ACC).map(([n, a]) => `<button aria-label="${n}" aria-pressed="${TH.a == n}" onclick="setTheme('a','${n}')" style="width:48px;height:48px;border-radius:50%;padding:0;border:3px solid ${TH.a == n ? 'var(--ink)' : 'transparent'};background:linear-gradient(135deg,${a[1]},${a[2]})"></button>`).join('')}
-  </div>
+  <div class=m style="margin:16px 0 8px">Font</div>
+  <div class=fgrid>${Object.entries(FONTS).map(([k, [n, st]]) => `<button aria-pressed="${(TH.f || 'system') == k}" class="fb ${(TH.f || 'system') == k ? 'on' : ''}" onclick="setTheme('f','${k}')" style='font-family:${st}'>${n}<small>₹1,23,456 · Aa</small></button>`).join('')}</div>
+  <div class=m style="margin:16px 0 8px">Text size</div>
+  <div class=seg>${[['S', 'Small'], ['M', 'Default'], ['L', 'Large']].map(([k, l]) => `<button class="${(TH.z || 'M') == k ? 'on' : ''}" onclick="setTheme('z','${k}')">${l}</button>`).join('')}</div>
   <div class=m style="margin:14px 0 6px">Chart colours: ${TH.c || 'Vivid'}</div>
   <div style="display:flex;flex-direction:column;gap:8px">
     ${[...Object.keys(CPAL), 'Accent'].map(n => `<button onclick="setTheme('c','${n}')" aria-pressed="${(TH.c || 'Vivid') == n}" style="width:100%;display:flex;justify-content:space-between;align-items:center;border:2px solid ${(TH.c || 'Vivid') == n ? 'var(--pri)' : 'var(--line)'}"><span>${n}</span><span style="display:flex;gap:3px">${cpal(n).slice(0, 8).map(c => `<i style="width:14px;height:14px;border-radius:50%;background:${c}"></i>`).join('')}</span></button>`).join('')}
@@ -2655,6 +2847,7 @@ const appear = () => `
   <div class=seg>
     ${[['donut', 'Donut'], ['bars', 'Bars']].map(([k, l]) => `<button class="${(TH.s || 'donut') == k ? 'on' : ''}" onclick="setTheme('s','${k}')">${l}</button>`).join('')}
   </div>
+
 </div>`;
 
 // Core Application Render Loop
@@ -2673,7 +2866,7 @@ function render() {
   $('#app').innerHTML = `
   <header>
     <div style="display:flex;align-items:center;gap:6px">
-      <b>Fintrak</b>
+      <span class=brand>${LOGO}<b>FinPlan</b></span>
       ${V.t == 'more' ? '<span style="font-size:13px;opacity:0.7">· Settings</span>' : V.t == 'analytics' ? '<span style="font-size:13px;opacity:0.7">· Analytics</span>' : ''}
     </div>
     <div style="display:flex;align-items:center;gap:6px">
@@ -2724,7 +2917,7 @@ function renderPinScreen() {
   }
   overlay.innerHTML = `
   <div style="font-size:24px;margin-bottom:8px">🔒</div>
-  <h2 style="margin:0 0 4px">Fintrak Locked</h2>
+  <h2 style="margin:0 0 4px">FinPlan Locked</h2>
   <div class=m style="font-size:13px">Enter your 4-digit PIN to continue</div>
   <div class="pin-dots">
     ${[0, 1, 2, 3].map(i => `<div class="pin-dot ${enteredPin.length > i ? 'filled' : ''}"></div>`).join('')}
@@ -2810,10 +3003,11 @@ if (typeof location !== 'undefined') {
 
 
 // Choose which Home cards to show
+const hideList=()=>(S.fp&&S.fp.hide)||[];
 const HS=['Credit card bills','Where the money went','Budget pace','🔮 What-If Scenario Sandbox','🩺 Financial Health Scorecard'];
-function applyHide(){if(typeof document==='undefined'||V.t!=='home')return;const h=S.hide||[];document.querySelectorAll('main > .c, main > details').forEach(c=>{const t=((c.querySelector('h3,summary')||{}).textContent||'').trim();if(h.some(n=>t.startsWith(n)))c.style.display='none'})}
-function toggleHS(i){const n=HS[i];S.hide=(S.hide||[]).includes(n)?S.hide.filter(x=>x!==n):[...(S.hide||[]),n];save()}
-const homeCardsHtml=()=>`<div class=c><h3 style="margin-bottom:8px">Home screen cards</h3>${HS.map((n,i)=>`<div class=r><span>${e(n)}</span><button onclick="toggleHS(${i})" style="min-width:84px">${(S.hide||[]).includes(n)?'Hidden':'Shown'}</button></div>`).join('')}</div>`;
+function applyHide(){if(typeof document==='undefined'||V.t!=='home')return;const h=hideList();document.querySelectorAll('main > .c, main > details').forEach(c=>{const t=((c.querySelector('h3,summary')||{}).textContent||'').trim();if(h.some(n=>t.startsWith(n)))c.style.display='none'})}
+function toggleHS(i){S.fp=S.fp||{};const n=HS[i],h=hideList();S.fp.hide=h.includes(n)?h.filter(x=>x!==n):[...h,n];save()}
+const homeCardsHtml=()=>`<div class=c><h3 style="margin-bottom:8px">Home screen cards</h3>${HS.map((n,i)=>`<div class=r><span>${e(n)}</span><button onclick="toggleHS(${i})" style="min-width:84px">${hideList().includes(n)?'Hidden':'Shown'}</button></div>`).join('')}</div>`;
 {const _r=render;render=function(){_r.apply(this,arguments);applyHide()}}
 
 if (typeof document !== 'undefined') {
@@ -2828,4 +3022,31 @@ if (typeof document !== 'undefined') {
 
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
+}
+
+
+// Automatic rollover to current month when app resumes or day changes past midnight
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      const now = new Date();
+      if (now.getMonth() !== T.getMonth() || now.getFullYear() !== T.getFullYear()) {
+        T = now;
+        V.y = now.getFullYear();
+        V.m = now.getMonth();
+        render();
+      }
+    }
+  });
+}
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('focus', () => {
+    const now = new Date();
+    if (now.getMonth() !== T.getMonth() || now.getFullYear() !== T.getFullYear()) {
+      T = now;
+      V.y = now.getFullYear();
+      V.m = now.getMonth();
+      render();
+    }
+  });
 }

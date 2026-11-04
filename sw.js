@@ -1,77 +1,24 @@
-// Bump BUILD on every release (also bump ?v= in index.html) so phones fetch the new files.
-const BUILD = '34';
-const C = 'fintrak-v' + BUILD;
-const F = [
-  './',
-  'index.html',
-  'style.css',
-  'app.js',
-  'manifest.webmanifest',
-  'icon-192.png',
-  'icon-512.png',
-  'icon-512-maskable.png',
-  'apple-touch-icon.png',
-  'favicon.png'
-];
+// Bump BUILD on every release (and the ?v= numbers in index.html) so phones fetch the new files.
+const BUILD = '1';
+const C = 'fp3-v' + BUILD;
+const FILES = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-512-maskable.png', 'apple-touch-icon.png', 'favicon.png',
+  'fonts/poppins-400.woff', 'fonts/poppins-500.woff', 'fonts/poppins-700.woff', 'fonts/lora-400.woff', 'fonts/lora-700.woff'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(C).then(cache => {
-      return Promise.allSettled(
-        F.map(url =>
-          cache.add(url).catch(err => {
-            console.warn('Fintrak SW: optional cache add skipped for', url, err);
-          })
-        )
-      );
-    }).then(() => self.skipWaiting())
-  );
+  e.waitUntil(caches.open(C).then(c => Promise.allSettled(FILES.map(u => c.add(u).catch(() => {})))).then(() => self.skipWaiting()));
 });
-
+// Only ever touches FinPlan's own caches (fp3-*), never Fintrak's.
 self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(k => k.startsWith('fintrak-') && k !== C)
-          .map(k => caches.delete(k))
-      )
-    ).then(() => clients.claim())
-  );
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('fp3-') && k !== C).map(k => caches.delete(k)))).then(() => clients.claim()));
 });
-
-// Stale-While-Revalidate: instant offline load + background update
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  
-  // For navigation requests (opening the app)
-  if (e.request.mode === 'navigate') {
-    e.respondWith(
-      caches.match(e.request, { ignoreSearch: true }).then(cached => {
-        const fetchPromise = fetch(e.request).then(netRes => {
-          if (netRes && netRes.status === 200) {
-            const clone = netRes.clone();
-            caches.open(C).then(c => c.put(e.request, clone));
-          }
-          return netRes;
-        }).catch(() => cached || caches.match('index.html'));
-        return cached || fetchPromise;
-      })
-    );
-    return;
-  }
-
-  // For static assets: CSS, JS, Images, Icons
-  e.respondWith(
-    caches.match(e.request, { ignoreSearch: true }).then(cached => {
-      const fetchPromise = fetch(e.request).then(netRes => {
-        if (netRes && netRes.status === 200) {
-          const clone = netRes.clone();
-          caches.open(C).then(c => c.put(e.request, clone));
-        }
-        return netRes;
-      }).catch(() => cached);
-      return cached || fetchPromise;
-    })
-  );
+  const r = e.request;
+  if (r.method !== 'GET' || new URL(r.url).origin !== location.origin) return;
+  e.respondWith(caches.match(r, { ignoreSearch: true }).then(cached => {
+    const net = fetch(r).then(res => {
+      if (res && res.status === 200) { const copy = res.clone(); caches.open(C).then(c => c.put(r, copy)); }
+      return res;
+    }).catch(() => cached || (r.mode === 'navigate' ? caches.match('index.html') : undefined));
+    return cached || net;
+  }));
 });
